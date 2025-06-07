@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice to Text</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --nav-bg: #fcfcfc;
+      --text: #111111;
+      --button-bg: #facc15;
+      --button-text: #111;
+      --box-bg: #ffffff;
+      --shadow: rgba(0, 0, 0, 0.1);
+      --button-hover-bg: #ffbf00;
+      --button-hover-shadow: rgba(255, 227, 114, 1);
+    }
+
+    body.dark {
+      --bg: #121212;
+      --nav-bg: #2a2a2a;
+      --text: #fefce8;
+      --button-bg: #facc15;
+      --button-text: #111;
+      --box-bg: #1e1e1e;
+      --shadow: rgba(255, 255, 255, 0.05);
+      --button-hover-bg: #ffbf00;
+      --button-hover-shadow: rgba(250, 204, 21,1);
+    }
+
+    * {
+      box-sizing: border-box;
+      transition: all 0.3s ease;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    .navbar {
+      backdrop-filter: blur(10px);
+      background-color: var(--nav-bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 30px;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      box-shadow: 0 2px 8px var(--shadow);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .logo-box {
+      width: 64px;
+      height: 64px;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .logo-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .logo-text {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--text);
+    }
+
+    .toggle-wrapper {
+      display: flex;
+      align-items: center;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      border-radius: 34px;
+      transition: 0.4s;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "🌞";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      color: black;
+      font-size: 16px;
+      line-height: 26px;
+      text-align: center;
+      border-radius: 50%;
+      transition: 0.4s;
+    }
+
+    input:checked + .slider {
+      background-color: var(--button-bg);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+      content: "🌙";
+    }
+
+    .container {
+      padding: 60px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 2em;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .controls button,
+    .controls label {
+      background: var(--button-bg);
+      color: var(--button-text);
+      border: none;
+      border-radius: 999px;
+      padding: 12px 20px;
+      cursor: pointer;
+      font-size: 1em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .controls button:hover,
+    .controls label:hover {
+      background-color: var(--button-hover-bg);
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    #drop-zone {
+      width: 90%;
+      max-width: 600px;
+      padding: 30px;
+      margin-bottom: 20px;
+      border: 2px dashed var(--button-bg);
+      border-radius: 12px;
+      text-align: center;
+      color: var(--text);
+      background-color: var(--box-bg);
+      cursor: pointer;
+    }
+
+    #drop-zone.dragover {
+      background-color: rgba(250, 204, 21, 0.1);
+    }
+
+    #transcription {
+      width: 90%;
+      max-width: 600px;
+      background-color: var(--box-bg);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px var(--shadow);
+      font-size: 1.1em;
+      min-height: 120px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    #file-name {
+      width: 90%;
+      max-width: 600px;
+      font-style: italic;
+      color: var(--text);
+      opacity: 0.7;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    #spinner {
+      margin: 10px 0 20px;
+      display: none;
+    }
+
+    .loader {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid var(--button-bg);
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      animation: spin 1s linear infinite;
+      margin: auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.9em;
+      opacity: 0.6;
+      margin: 40px 20px 20px;
+    }
+
+    footer span {
+      color: var(--button-bg);
+    }
+
+    @media (max-width: 480px) {
+      .controls {
+        flex-direction: column;
+      }
+
+      .logo-text {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="logo">
+      <div class="logo-box">
+        <img src="300001679_395707246021779_1468513396035306685_n.png" alt="Logo" />
+      </div>
+      <span class="logo-text">SPEECH RECOGNITION USING NEURAL NETWORK</span>
+    </div>
+    <div class="toggle-wrapper">
+      <label class="switch">
+        <input type="checkbox" id="theme-toggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1>Voice to Text</h1>
+
+    <div id="drop-zone">Drop your audio file here or click to upload</div>
+    <input type="file" id="audio-file" accept="audio/*" hidden />
+
+    <div class="controls">
+      <button id="save-btn"><i class="fas fa-download"></i> Save</button>
+      <button id="copy-btn"><i class="fas fa-copy"></i> Copy</button>
+      <button id="transcribe-btn"><i class="fas fa-microphone"></i> Transcribe</button>
+    </div>
+
+    <div id="file-name"></div>
+    <div id="transcription">Your voice will appear here…</div>
+    <div id="spinner"><div class="loader"></div></div>
+  </div>
+
+  <footer>
+    Made with <span>♥</span> by <strong>Abhishek, Avik, Namrata, Sourish & Anirban</strong><br />
+    Mentored by <strong>Prof. Sourav Kayal</strong>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('audio-file');
+    const resultBox = document.getElementById('transcription');
+    const fileNameDisplay = document.getElementById('file-name');
+    const transcribeBtn = document.getElementById('transcribe-btn');
+    const spinner = document.getElementById('spinner');
+
+    const toast = (msg, type = "info") => {
+      Toastify({
+        text: msg,
+        duration: 3000,
+        gravity: "bottom",
+        position: "center",
+        style: {
+          background: type === "error" ? "#f87171" : "#4ade80",
+          color: "#111",
+        }
+      }).showToast();
+    };
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith("audio/")) {
+        fileInput.files = e.dataTransfer.files;
+        fileNameDisplay.textContent = `Selected file: ${file.name}`;
+        resultBox.textContent = "Ready to transcribe.";
+        toast("File loaded.");
+      } else {
+        toast("Please drop a valid audio file.", "error");
+      }
+    });
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) {
+        fileNameDisplay.textContent = `Selected file: ${file.name}`;
+        resultBox.textContent = "Ready to transcribe.";
+        toast("File selected.");
+      }
+    });
+
+    transcribeBtn.addEventListener('click', async () => {
+      const file = fileInput.files[0];
+      if (!file) {
+        toast("Please upload an audio file first.", "error");
+        return;
+      }
+
+      resultBox.textContent = "Transcribing…";
+      spinner.style.display = "block";
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('http://127.0.0.1:8000/transcribe/', {
+          method: 'POST',
+          body: formData
+        });
+
+        spinner.style.display = "none";
+
+        if (!res.ok) throw new Error("Transcription failed");
+
+        const data = await res.json();
+        resultBox.textContent = data.transcription || "No transcription returned.";
+        toast("Transcription complete.");
+      } catch (err) {
+        resultBox.textContent = "Error: " + err.message;
+        toast("Transcription failed!", "error");
+        spinner.style.display = "none";
+      }
+    });
+
+    document.getElementById('copy-btn').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(resultBox.textContent || "");
+        toast("Copied to clipboard.");
+      } catch (err) {
+        toast("Failed to copy!", "error");
+      }
+    };
+
+    document.getElementById('save-btn').onclick = () => {
+      const blob = new Blob([resultBox.textContent || ""], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "transcription.txt";
+      link.click();
+      URL.revokeObjectURL(url);
+      toast("Downloaded transcription.");
+    };
+
+    document.getElementById('theme-toggle').addEventListener('change', () => {
+      document.body.classList.toggle('dark');
+    });
+  </script>
+</body>
+</html>
