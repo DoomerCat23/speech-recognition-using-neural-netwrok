@@ -174,6 +174,8 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      user-select: none;
+      transition: background-color 0.3s ease;
     }
 
     .controls button:hover,
@@ -196,6 +198,7 @@
       color: var(--text);
       background-color: var(--box-bg);
       cursor: pointer;
+      user-select: none;
     }
 
     #drop-zone.dragover {
@@ -216,6 +219,7 @@
       margin-bottom: 10px;
       white-space: pre-wrap;
       word-break: break-word;
+      user-select: text;
     }
 
     #file-name {
@@ -226,6 +230,7 @@
       opacity: 0.7;
       margin-bottom: 10px;
       text-align: center;
+      user-select: none;
     }
 
     #spinner {
@@ -253,6 +258,7 @@
       font-size: 0.9em;
       opacity: 0.6;
       margin: 40px 20px 20px;
+      user-select: none;
     }
 
     footer span {
@@ -293,9 +299,10 @@
     <input type="file" id="audio-file" accept="audio/*" hidden />
 
     <div class="controls">
-      <button id="save-btn"><i class="fas fa-download"></i> Save</button>
-      <button id="copy-btn"><i class="fas fa-copy"></i> Copy</button>
+      <button id="record-btn"><i class="fas fa-circle"></i> Record</button>
       <button id="transcribe-btn"><i class="fas fa-microphone"></i> Transcribe</button>
+      <button id="copy-btn"><i class="fas fa-copy"></i> Copy</button>
+      <button id="save-btn"><i class="fas fa-download"></i> Save</button>
     </div>
 
     <div id="file-name"></div>
@@ -304,7 +311,7 @@
   </div>
 
   <footer>
-    Made with <span>♥</span> by <strong>Abhishek, Avik, Namrata, Sourish & Anirban</strong><br />
+    Made with <span>♥</span> by <strong>Abhishek, Avik, Namrata, Sourish &amp; Anirban</strong><br />
     Mentored by <strong>Prof. Sourav Kayal</strong>
   </footer>
 
@@ -316,7 +323,12 @@
     const fileNameDisplay = document.getElementById('file-name');
     const transcribeBtn = document.getElementById('transcribe-btn');
     const spinner = document.getElementById('spinner');
+    const recordBtn = document.getElementById('record-btn');
 
+    let mediaRecorder = null;
+    let recordedChunks = [];
+
+    // Toast helper
     const toast = (msg, type = "info") => {
       Toastify({
         text: msg,
@@ -330,6 +342,7 @@
       }).showToast();
     };
 
+    // Drag and drop zone
     dropZone.addEventListener('click', () => fileInput.click());
 
     dropZone.addEventListener('dragover', (e) => {
@@ -355,6 +368,7 @@
       }
     });
 
+    // File input change
     fileInput.addEventListener('change', () => {
       const file = fileInput.files[0];
       if (file) {
@@ -364,10 +378,59 @@
       }
     });
 
+    // RECORD BUTTON HANDLER
+    recordBtn.addEventListener('click', async () => {
+      if (mediaRecorder && mediaRecorder.state === "recording") {
+        // Stop recording
+        mediaRecorder.stop();
+        recordBtn.innerHTML = '<i class="fas fa-circle"></i> Record';
+        recordBtn.style.backgroundColor = ""; // reset color
+      } else {
+        // Start recording
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          toast("Recording not supported in your browser.", "error");
+          return;
+        }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          recordedChunks = [];
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+            // Create a File object to reuse existing flow
+            const audioFile = new File([audioBlob], "recording.webm", { type: "audio/webm" });
+            // Set the file input's files property (hacky but works)
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(audioFile);
+            fileInput.files = dataTransfer.files;
+
+            fileNameDisplay.textContent = `Recorded file: ${audioFile.name}`;
+            resultBox.textContent = "Ready to transcribe recorded audio.";
+            toast("Recording stopped. Ready to transcribe.");
+          };
+
+          mediaRecorder.start();
+          recordBtn.innerHTML = '<i class="fas fa-stop"></i> Stop';
+          recordBtn.style.backgroundColor = "#f87171"; // red while recording
+          fileNameDisplay.textContent = "";
+          resultBox.textContent = "Recording...";
+          toast("Recording started.");
+        } catch (err) {
+          toast("Could not start recording: " + err.message, "error");
+        }
+      }
+    });
+
+    // TRANSCRIBE BUTTON
     transcribeBtn.addEventListener('click', async () => {
       const file = fileInput.files[0];
       if (!file) {
-        toast("Please upload an audio file first.", "error");
+        toast("Please upload or record an audio file first.", "error");
         return;
       }
 
@@ -378,14 +441,18 @@
       formData.append('file', file);
 
       try {
-        const res = await fetch('https://srnn-backend.onrender.com/transcribe/', {
+        // Replace this URL with your actual backend endpoint if different
+        const res = await fetch('http://127.0.0.1:8000/transcribe/', {
           method: 'POST',
           body: formData
         });
 
         spinner.style.display = "none";
 
-        if (!res.ok) throw new Error("Transcription failed");
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.detail || "Transcription failed");
+        }
 
         const data = await res.json();
         resultBox.textContent = data.transcription || "No transcription returned.";
@@ -397,6 +464,7 @@
       }
     });
 
+    // COPY BUTTON
     document.getElementById('copy-btn').onclick = async () => {
       try {
         await navigator.clipboard.writeText(resultBox.textContent || "");
@@ -406,6 +474,7 @@
       }
     };
 
+    // SAVE BUTTON
     document.getElementById('save-btn').onclick = () => {
       const blob = new Blob([resultBox.textContent || ""], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -417,6 +486,7 @@
       toast("Downloaded transcription.");
     };
 
+    // THEME TOGGLE
     document.getElementById('theme-toggle').addEventListener('change', () => {
       document.body.classList.toggle('dark');
     });
